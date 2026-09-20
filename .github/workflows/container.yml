@@ -26,14 +26,15 @@ jobs:
         with:
           python-version: "3.12"
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: false
       - run: uv sync --group dev
       - run: uv run ruff check src/arr_mcp tests/
       - run: uv run pytest -x --tb=short -k "not slow"
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "20"
-          cache: npm
-          cache-dependency-path: webapp/package-lock.json
+          package-manager-cache: false
       - run: npm ci
         working-directory: webapp
       - run: npx @biomejs/biome check src/
@@ -128,8 +129,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
-          cache-from: type=gha,scope=${{ matrix.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
       - name: Summarize published image
         if: github.event_name != 'pull_request'
         env:
