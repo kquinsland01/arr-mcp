@@ -25,17 +25,35 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - name: Set up uv with cache
+        if: github.event_name != 'push'
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
-          # PR and release validation share this job; do not restore or save a shared uv cache.
+          enable-cache: true # zizmor: ignore[cache-poisoning] Release tag pushes use the cache-disabled step below.
+      - name: Set up uv for release
+        if: github.event_name == 'push'
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          # A v* tag push publishes latest; resolve dependencies without a saved cache.
           enable-cache: false
       - run: uv sync --group dev
       - run: uv run ruff check src/arr_mcp tests/
       - run: uv run pytest -x --tb=short -k "not slow"
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - name: Set up Node with cache
+        if: github.event_name != 'push'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
+          # TODO: update this to something modern
           node-version: "20"
-          # Do not cache npm dependencies across PR and release runs. The cache path is unnecessary without caching.
+          cache: npm # zizmor: ignore[cache-poisoning] Release tag pushes use the cache-disabled step below.
+          cache-dependency-path: webapp/package-lock.json
+      - name: Set up Node for release
+        if: github.event_name == 'push'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          # TODO: update this to something modern
+          node-version: "20"
+          # Disable v7's automatic npm cache on release tag builds.
           package-manager-cache: false
       - run: npm ci
         working-directory: webapp
@@ -131,7 +149,9 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
-          # Omit cache-from/cache-to to avoid cross-trust reuse of PR-built layers in published images.
+          # The only push event is a release tag. Build it without restored or saved layers.
+          cache-from: ${{ github.event_name != 'push' && format('type=gha,scope={0}', matrix.name) || '' }}
+          cache-to: ${{ github.event_name != 'push' && format('type=gha,mode=max,scope={0}', matrix.name) || '' }}
       - name: Summarize published image
         if: github.event_name != 'pull_request'
         env:
