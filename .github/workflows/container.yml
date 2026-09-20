@@ -27,6 +27,7 @@ jobs:
           python-version: "3.12"
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
+          # PR and release validation share this job; do not restore or save a shared uv cache.
           enable-cache: false
       - run: uv sync --group dev
       - run: uv run ruff check src/arr_mcp tests/
@@ -34,6 +35,7 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "20"
+          # Do not cache npm dependencies across PR and release runs. The cache path is unnecessary without caching.
           package-manager-cache: false
       - run: npm ci
         working-directory: webapp
@@ -129,6 +131,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
+          # Omit cache-from/cache-to to avoid cross-trust reuse of PR-built layers in published images.
       - name: Summarize published image
         if: github.event_name != 'pull_request'
         env:
